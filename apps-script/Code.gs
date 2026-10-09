@@ -91,11 +91,24 @@ function header_(payload, name) {
   return '';
 }
 
+/** The Gmail service hands body data over as bytes; older responses use a base64url string. */
+function decode_(data) {
+  try {
+    if (typeof data === 'string') {
+      var pad = data.length % 4 ? '===='.slice(data.length % 4) : '';
+      return Utilities.newBlob(Utilities.base64DecodeWebSafe(data + pad)).getDataAsString();
+    }
+    return Utilities.newBlob(data).getDataAsString();
+  } catch (e) {
+    return '';
+  }
+}
+
 function bodies_(part, acc) {
   if (part.parts) part.parts.forEach(function (p) { bodies_(p, acc); });
   var isAttachment = part.filename && part.filename.length;
   if (!isAttachment && part.body && part.body.data && (part.mimeType === 'text/plain' || part.mimeType === 'text/html')) {
-    var text = Utilities.newBlob(Utilities.base64DecodeWebSafe(part.body.data)).getDataAsString();
+    var text = decode_(part.body.data);
     if (part.mimeType === 'text/plain') acc.text += text + '\n'; else acc.html += text + '\n';
   }
   return acc;
@@ -120,11 +133,17 @@ function poll() {
       token = page.nextPageToken;
     } while (token && ids.length < 300);
 
-    var msgs = ids.map(function (id) {
-      var full = Gmail.Users.Messages.get('me', id, { format: 'full' });
-      var b = bodies_(full.payload, { text: '', html: '' });
-      return { id: id, from: header_(full.payload, 'from'), subject: header_(full.payload, 'subject'),
-               date: new Date(Number(full.internalDate)), text: b.html ? htmlToText(b.html) : b.text, html: b.html };
+    var msgs = [];
+    ids.forEach(function (id) {
+      // One unreadable email must not stop the rest; it is retried on the next run.
+      try {
+        var full = Gmail.Users.Messages.get('me', id, { format: 'full' });
+        var b = bodies_(full.payload, { text: '', html: '' });
+        msgs.push({ id: id, from: header_(full.payload, 'from'), subject: header_(full.payload, 'subject'),
+                    date: new Date(Number(full.internalDate)), text: b.html ? htmlToText(b.html) : b.text, html: b.html });
+      } catch (e) {
+        console.warn('skipped message ' + id + ': ' + e);
+      }
     });
     msgs.sort(function (a, b) { return a.date - b.date; });   // oldest first, so status moves forward
 
