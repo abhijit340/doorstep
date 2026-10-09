@@ -1,0 +1,14 @@
+# Allowlist: this repo is public, so only the named paths below are ever tracked.
+# Keys, the script's ID, and anything personal stay out by default.
+/*
+!/.gitignore
+!/README.md
+!/docs/
+!/apps-script/
+!/tests/
+!/tools/
+
+.clasp.json
+connection-link.txt
+tests/*.py
+__pycache__/

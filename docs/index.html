@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2a37">
+<meta name="robots" content="noindex">
+<title>Packages</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Packages</h1>
+  <button id="refresh" title="Check mail now" aria-label="Check mail now">↻</button>
+</header>
+
+<section id="setup" class="hidden">
+  <h2>Connect to your tracker</h2>
+  <p>Paste the private link from your tracker's Google Sheet script. It stays on this device.</p>
+  <input id="link" type="url" placeholder="https://script.google.com/macros/s/…/exec?key=…" autocomplete="off" autocapitalize="off">
+  <button id="connect" class="primary">Connect</button>
+  <p id="setup-err" class="err"></p>
+  <p class="fine">This page holds no data of its own. Package details come from your private sheet and are shown only on your device.
+    <a href="privacy.html">Privacy</a></p>
+</section>
+
+<div id="app" class="hidden">
+  <nav>
+    <button data-view="arriving" class="active">Arriving</button>
+    <button data-view="delivered">Delivered</button>
+    <button data-view="archived">Archived</button>
+  </nav>
+  <main id="list"></main>
+  <p id="status"></p>
+  <p class="fine"><a href="#" id="disconnect">Disconnect this device</a> · <a href="privacy.html">Privacy</a></p>
+</div>
+
+<div id="sheet" class="hidden">
+  <div class="sheet-inner">
+    <button id="close" aria-label="Close">✕</button>
+    <div id="detail"></div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

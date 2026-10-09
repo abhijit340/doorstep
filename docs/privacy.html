@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Packages – Privacy</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>Packages – Privacy</h1></header>
+<article>
+<p>Packages is a personal, non-commercial tool for seeing your own deliveries in one place. It is not offered as a service to the public.</p>
+
+<h2>What this page does</h2>
+<p>This page is a static file. It has no server, no accounts, no analytics and no ads, and it stores no package data of its own. It only draws the list it receives from a private Google Apps Script that you run in your own Google account.</p>
+
+<h2>Where your data lives</h2>
+<p>Shipping emails stay in your Gmail. The script reads the inbox it is installed in, read-only, and writes one row per package to a Google Sheet in the same account. Nobody else can open that sheet unless you share it.</p>
+
+<h2>What is kept on your device</h2>
+<p>Your browser stores the private link to your script and the last package list it loaded, so the page opens quickly and works offline. "Disconnect this device" on the main page erases both.</p>
+
+<h2>Third parties</h2>
+<p>The page is served by GitHub Pages, and it talks to Google (your script, plus Google's public icon service for store logos). Product photos, when shown, load from the store that sent the email. Each of those can see that a request was made, as with any website.</p>
+
+<h2>The private link</h2>
+<p>Anyone who has your private link can see your package list. Share it only with people you want to see it. You can replace the key at any time by running <code>rotateKey</code> in the script.</p>
+
+<p><a href="./">Back to Packages</a></p>
+</article>
+</body>
+</html>
