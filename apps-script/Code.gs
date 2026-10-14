@@ -14,7 +14,7 @@ var COLS = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracki
             'ordered_at', 'delivered_at', 'order_number', 'notes', 'archived', 'image', 'merchant_domain',
             'id', 'events', 'received', 'received_at'];   // new columns go at the end so old rows still line up
 var MAIL_COLS = ['message_id', 'received', 'from', 'subject', 'kind', 'package_id'];
-var EDITABLE = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracking_url', 'notes', 'archived', 'image', 'received'];
+var EDITABLE = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracking_url', 'notes', 'archived', 'image', 'received', 'merchant_domain', 'order_number'];
 var BOOLS = ['archived', 'received'];
 
 function props_() { return PropertiesService.getScriptProperties(); }
