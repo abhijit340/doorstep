@@ -2,7 +2,7 @@
 
 A personal, ad-free "where are my packages" app. It reads shipping emails, works out what each package is, who's carrying it and when it arrives, and shows that on a clean phone page.
 
-Live page: https://abhijit340.github.io/doorstep/ (it shows nothing until you connect it to your own tracker with a private link).
+Live page: https://doorstep-aj.pages.dev/ (it shows nothing until you connect it to your own tracker with a private link).
 
 ## How it works
 
