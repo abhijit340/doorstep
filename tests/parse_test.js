@@ -81,4 +81,13 @@ assert.strictEqual(shipTo.items, 'Linen Apron - Natural', 'ship-to block skipped
 assert.strictEqual(parseEmail({ from: 'Ticketmaster <customer_support@email.ticketmaster.com>', subject: 'Your order is confirmed',
   date: at(10, 13, 11), text: 'You got the tickets!' }).kind, 'ignored', 'ticket emails ignored');
 assert.strictEqual(findImage('<img src="https://x.com/pixel.gif" width="1" height="1">'), null);
+
+// REI-style confirmation: entity-laden plain text, item only clear in the HTML table, "Sat, Oct 17" style ETA.
+const reiOrder = parseEmail({ from: 'REI <rei@notices.rei.com>', subject: 'Thanks for your order! (#A100200300)', date: at(10, 14, 9),
+  text: "We're preparing your 3 items\nVisit order details to print\n&ndash; REI CO-OP MEMBER &ndash;\nYou paid: $50.00 via MasterCard (ending in 1234)\nEstimated arrival (3 items): Sat, Oct 17",
+  html: '<table><tr><td>Estimated arrival (3 items): Sat, Oct 17</td></tr>' +
+        '<tr><td><a href="https://x.example/p"><img src="https://x.example/i.jpg"></a></td><td>Trail Lamp 200 Headlamp Black Item #C99999</td></tr>' +
+        '<tr><td>Qty: 3</td><td>$15.00</td><td>$45.00</td></tr></table>' });
+assert.strictEqual(reiOrder.items, "Trail Lamp 200 Headlamp ×3", "REI items: " + reiOrder.items);
+assert.strictEqual(reiOrder.eta, "2026-10-17", "REI eta: " + reiOrder.eta);
 console.log('\nall good');

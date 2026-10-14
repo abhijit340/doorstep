@@ -257,7 +257,21 @@ $("sheet").onclick = e => { if (e.target === $("sheet")) $("sheet").classList.ad
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   userPickedView = true; setView(b.dataset.view); render();
 });
-$("refresh").onclick = () => load({ action: "refresh" });
+// Check mail now: runs the script's mail check, then says what changed. Also pulls any new app version.
+$("refresh").onclick = async () => {
+  const btn = $("refresh"), label = $("refresh-label");
+  if (btn.disabled) return;
+  const before = new Map(data.packages.map(p => [p.id, p.last_update]));
+  btn.disabled = true; label.textContent = "Checking…";
+  navigator.serviceWorker?.getRegistration().then(r => r && r.update()).catch(() => {});
+  await load({ action: "refresh" });
+  btn.disabled = false; label.textContent = "Check mail";
+  if ($("status").className === "err") return;
+  const changed = data.packages.filter(p => before.get(p.id) !== p.last_update).length;
+  $("status").textContent = changed
+    ? `Checked mail just now · ${changed} package${changed > 1 ? "s" : ""} updated`
+    : "Checked mail just now · nothing new";
+};
 document.addEventListener("visibilitychange", () => { if (!document.hidden && conn()) load(); });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

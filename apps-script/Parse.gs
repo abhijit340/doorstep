@@ -45,16 +45,27 @@ function stamp_(d) {
   return ymd_(d) + 'T' + pad2_(d.getHours()) + ':' + pad2_(d.getMinutes()) + ':' + pad2_(d.getSeconds());
 }
 
+var ENTITIES = { ndash: '–', mdash: '—', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', hellip: '…',
+  reg: '®', trade: '™', copy: '©', middot: '·', bull: '•' };
+
+function decodeEntities(t) {
+  return String(t || '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, function (m, n) {
+      return String.fromCharCode(Number(n));
+    }).replace(/&#x([0-9a-f]+);/gi, function (m, n) {
+      return String.fromCharCode(parseInt(n, 16));
+    }).replace(/&(ndash|mdash|rsquo|lsquo|rdquo|ldquo|hellip|reg|trade|copy|middot|bull);/g, function (m, n) {
+      return ENTITIES[n];
+    });
+}
+
 function htmlToText(html) {
   var t = String(html || '');
   t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ');
   t = t.replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>|<\/li>|<\/h\d>/gi, '\n');
   t = t.replace(/<\/td>/gi, '  ');
   t = t.replace(/<[^>]+>/g, ' ');
-  t = t.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-       .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, function (m, n) {
-         return String.fromCharCode(Number(n));
-       });
+  t = decodeEntities(t);
   t = t.replace(/[ \t ]+/g, ' ').replace(/\n\s*\n+/g, '\n');
   return t.trim();
 }
@@ -139,8 +150,8 @@ function findEta(text, received) {
   var t = /(?:arriv\w*|deliver\w*)\W{0,20}(today|tomorrow)/i.exec(text);
   if (t) return ymd_(new Date(received.getTime() + (t[1].toLowerCase() === 'tomorrow' ? day : 0)));
   var re = new RegExp(
-    '(?:arriv\\w*|expected|estimated|delivery date|deliver\\w*|get it|by)\\W{0,40}' +
-    '(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\\s*)?' +
+    '(?:arriv\\w*|expected|estimated|delivery date|deliver\\w*|get it|by)\\W{0,40}(?:\\(\\d+ items?\\)\\W{0,5})?' +
+    '(?:(?:mon|tue|tues|wed|wednes|thu|thur|thurs|fri|sat|satur|sun)(?:day)?\\.?,?\\s*)?' +
     '(?:(' + MONTHS_RE + ')\\.?\\s+(\\d{1,2})|(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?)', 'gi');
   var m;
   while ((m = re.exec(text))) {
@@ -161,7 +172,7 @@ function findEta(text, received) {
 }
 
 /** Best-effort item names. Amazon puts them in the subject; stores list them in the order email. */
-function findItems(subject, body, kind) {
+function findItems(subject, body, kind, htmlBody) {
   var m = /(?:shipped|delivered|ordered|arriving|on its way)\s*:\s*["“']?(.{6,120}?)["”']?\s*$/i.exec(subject);
   if (m && !/\border\b.*#/i.test(m[1]) && !/^(your|the|a|an|\d+ items?)\b/i.test(m[1])) return m[1].replace(/[\s.!]+$/, '');
   m = /["“]([^"”]{6,120})["”]/.exec(subject);
@@ -170,6 +181,20 @@ function findItems(subject, body, kind) {
   if (kind !== 'order') return null;
   var out = [], seen = {};
   var lines = body.split(/\r?\n/);
+  // Stores like REI print "Product Name Black Item #C13270" with "Qty: 3" nearby; trust those first.
+  // The plain-text part can be mangled, so also look in the HTML part's text.
+  var itemLines = lines.concat(String(htmlBody || '').split(/\r?\n/));
+  var COLOR = '(?:black|white|gr[ae]y|blue|green|red|navy|tan|brown|olive|orange|yellow|pink|purple)';
+  var itemRe = new RegExp('(?:^|\\|)\\s*([A-Za-z][^|]{3,100}?)\\s+(?:' + COLOR + '\\s+)?(?:item|style|sku)\\s*#\\s*[A-Z0-9-]+', 'i');
+  for (var j = 0; j < itemLines.length && out.length < 3; j++) {
+    var im = itemRe.exec(itemLines[j]);
+    if (!im) continue;
+    var name = im[1].replace(/\[\]\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+    var q = /\bqty:?\s*(\d+)/i.exec(itemLines.slice(j, j + 4).join(' '));
+    if (q && Number(q[1]) > 1) name += ' ×' + q[1];
+    if (!seen[name.toLowerCase()]) { seen[name.toLowerCase()] = true; out.push(name); }
+  }
+  if (out.length) return out.join('; ');
   var skipUntil = -1, lastAdded = -1;
   for (var i = 0; i < lines.length && out.length < 3; i++) {
     var line = lines[i].trim();
@@ -181,7 +206,7 @@ function findItems(subject, body, kind) {
       if (lastAdded === i - 1 && out.length) out.pop();
       continue;
     }
-    if (/click here|shown below|summary|view (the |your )?(status|order)|unsubscribe|privacy|terms|customer service|contact us/i.test(line)) continue;
+    if (/click here|shown below|summary|view (the |your )?(status|order)|unsubscribe|privacy|terms|customer service|contact us|order details|\bvia\b|ending in|\bmember\b|you paid|payment|receipt/i.test(line)) continue;
     if (/^\d/.test(line)) continue;
     if (line.length < 8 || line.length > 110) continue;
     if (/^(qty|quantity|price|subtotal|total|tax|shipping|order|item|sku|track|view|thank|hi |hello|your|we|the |this |if |to |for |please|questions|http|©|\d+ x )/i.test(line)) continue;
@@ -222,7 +247,7 @@ function findImage(html) {
 /** msg: {from, subject, date (Date), text, html}. Returns everything the rules could find. */
 function parseEmail(msg) {
   var from = parseFrom(msg.from);
-  var body = msg.text || htmlToText(msg.html);
+  var body = msg.text ? decodeEntities(msg.text) : htmlToText(msg.html);
   var subject = String(msg.subject || '').replace(/^(fwd?|fw):\s*/i, '');
   var text = subject + '\n' + body;
   var kind = classify(subject, body);
@@ -246,7 +271,7 @@ function parseEmail(msg) {
     merchant: carrierIsMerchant && carrier !== 'Amazon' ? null : merchant,
     merchant_domain: carrierIsMerchant && carrier !== 'Amazon' ? '' : merchantDomain(from.addr),
     order_number: real ? findOrderNumber(text) : null,
-    items: real ? findItems(subject, body, kind) : null,
+    items: real ? findItems(subject, body, kind, msg.text && msg.html ? htmlToText(msg.html) : '') : null,
     eta: real ? findEta(text, msg.date) : null,
     tracking_url: real ? trackingUrl(carrier, t.tracking, msg.html) : null,
     image: real && (kind === 'order' || kind === 'shipped') ? findImage(msg.html) : null
