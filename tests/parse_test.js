@@ -69,5 +69,16 @@ assert.strictEqual(pending.eta, '2026-10-10');
 assert.strictEqual(pending.items, '', 'no item name invented from the subject');
 assert.strictEqual(parseEmail(SAMPLES[8]).kind, 'ignored', 'job alert ignored');
 assert.strictEqual(merchantDomain('a@mail.shop.co.uk'), 'shop.co.uk');
+
+// Order emails with a summary sentence and a name/address block must not leak into the item name.
+const roaster = parseEmail({ from: 'Cafe Campesino Roastery <orders@cafecampesino.com>', subject: 'Order #4471 confirmed',
+  date: at(10, 12, 20), text: 'A summary of your order is shown below. To view the status of your order click here .\nJane Example\n123 Main St N\nSeattle, WA 98102\nHonduras Marcala Whole Bean 12oz\nQty 2  $34.00' });
+assert.strictEqual(roaster.items, 'Honduras Marcala Whole Bean 12oz', 'items: ' + roaster.items);
+const shipTo = parseEmail({ from: 'Shop <orders@shop.com>', subject: 'Thanks for your order', date: at(10, 12, 9),
+  text: 'Shipping address\nJane Example\nApt 4\nSeattle WA\nLinen Apron - Natural\nQty 1 $40' });
+assert.strictEqual(shipTo.items, 'Linen Apron - Natural', 'ship-to block skipped: ' + shipTo.items);
+// Event tickets are not packages.
+assert.strictEqual(parseEmail({ from: 'Ticketmaster <customer_support@email.ticketmaster.com>', subject: 'Your order is confirmed',
+  date: at(10, 13, 11), text: 'You got the tickets!' }).kind, 'ignored', 'ticket emails ignored');
 assert.strictEqual(findImage('<img src="https://x.com/pixel.gif" width="1" height="1">'), null);
 console.log('\nall good');

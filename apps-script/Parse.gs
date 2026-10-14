@@ -170,15 +170,26 @@ function findItems(subject, body, kind) {
   if (kind !== 'order') return null;
   var out = [], seen = {};
   var lines = body.split(/\r?\n/);
+  var skipUntil = -1, lastAdded = -1;
   for (var i = 0; i < lines.length && out.length < 3; i++) {
     var line = lines[i].trim();
+    // Name/address blocks: skip the few lines after a "Ship to" style header.
+    if (/^(ship(ping)? to|shipping address|billing address|bill to|sold to|deliver(y|ing) to|customer information|recipient)\b/i.test(line)) { skipUntil = i + 3; continue; }
+    if (i <= skipUntil) continue;
+    // A street address line also means the line just before it was probably a name.
+    if (/^\d+\s+\S+.*\b(st|street|ave|avenue|rd|road|blvd|way|dr|drive|ln|lane|ct|court|pl|place|pkwy|hwy)\b\.?(\s+(n|s|e|w|ne|nw|se|sw)\b)?/i.test(line)) {
+      if (lastAdded === i - 1 && out.length) out.pop();
+      continue;
+    }
+    if (/click here|shown below|summary|view (the |your )?(status|order)|unsubscribe|privacy|terms|customer service|contact us/i.test(line)) continue;
+    if (/^\d/.test(line)) continue;
     if (line.length < 8 || line.length > 110) continue;
     if (/^(qty|quantity|price|subtotal|total|tax|shipping|order|item|sku|track|view|thank|hi |hello|your|we|the |this |if |to |for |please|questions|http|©|\d+ x )/i.test(line)) continue;
     if (/\b(arriv|carrier|estimated|delivery|shipped|tracking|on its way|good news)/i.test(line)) continue;
     if (/\$|\d{5,}|@|\bhttp/.test(line)) continue;
     if (/\b(qty|quantity)\b/i.test(line)) continue;
     var k = line.toLowerCase();
-    if (!seen[k]) { seen[k] = true; out.push(line); }
+    if (!seen[k]) { seen[k] = true; out.push(line); lastAdded = i; }
   }
   return out.length ? out.join('; ') : null;
 }
@@ -215,6 +226,8 @@ function parseEmail(msg) {
   var subject = String(msg.subject || '').replace(/^(fwd?|fw):\s*/i, '');
   var text = subject + '\n' + body;
   var kind = classify(subject, body);
+  // Event tickets are "orders" that never ship.
+  if (/ticketmaster|livenation|axs\.com|stubhub|seatgeek|eventbrite|vividseats|dice\.fm|cashortrade|tock|opentable|resy/i.test(from.addr)) kind = 'ignored';
   var t = findTracking(text);
   var carrier = t.carrier || findCarrier(text, from.addr);
   // A carrier email we didn't recognise by subject, but it carries a real tracking number.
