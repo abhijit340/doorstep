@@ -188,6 +188,13 @@ function findItems(subject, body, kind, htmlBody) {
   var itemRe = new RegExp('(?:^|\\|)\\s*([A-Za-z][^|]{3,100}?)\\s+(?:' + COLOR + '\\s+)?(?:item|style|sku)\\s*#\\s*[A-Z0-9-]+', 'i');
   for (var j = 0; j < itemLines.length && out.length < 3; j++) {
     var im = itemRe.exec(itemLines[j]);
+    // Shopify's order summary: "Product Name × 1".
+    var sm = !im && /^\s*([A-Za-z][^|\[\]]{3,100}?)\s+×\s*(\d+)\s*$/.exec(itemLines[j]);
+    if (sm) {
+      var nm = sm[1].trim() + (Number(sm[2]) > 1 ? ' ×' + sm[2] : '');
+      if (!seen[nm.toLowerCase()]) { seen[nm.toLowerCase()] = true; out.push(nm); }
+      continue;
+    }
     if (!im) continue;
     var name = im[1].replace(/\[\]\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
     var q = /\bqty:?\s*(\d+)/i.exec(itemLines.slice(j, j + 4).join(' '));
@@ -249,6 +256,18 @@ function parseEmail(msg) {
   var from = parseFrom(msg.from);
   var body = msg.text ? decodeEntities(msg.text) : htmlToText(msg.html);
   var subject = String(msg.subject || '').replace(/^(fwd?|fw):\s*/i, '');
+  var htmlBody = msg.text && msg.html ? htmlToText(msg.html) : '';
+  // Forwarded by hand: read the original sender and subject, and drop the forward header.
+  var fwd = /-{5,}\s*Forwarded message\s*-{5,}\s*\n([\s\S]*?)\n\s*\n/i.exec(body);
+  if (fwd) {
+    var head = fwd[1];
+    var ff = /^\s*From:\s*(.+)$/im.exec(head), fs = /^\s*Subject:\s*(.+)$/im.exec(head);
+    if (ff) from = parseFrom(ff[1].replace(/\*/g, '').trim());
+    if (fs) subject = fs[1].trim();
+    body = body.slice(fwd.index + fwd[0].length);
+    var hf = /Forwarded message[\s\S]*?Subject:[^\n]*\n(?:\s*To:[^\n]*\n)?/i.exec(htmlBody);
+    if (hf) htmlBody = htmlBody.slice(hf.index + hf[0].length);
+  }
   var text = subject + '\n' + body;
   var kind = classify(subject, body);
   // Event tickets are "orders" that never ship.
@@ -271,7 +290,7 @@ function parseEmail(msg) {
     merchant: carrierIsMerchant && carrier !== 'Amazon' ? null : merchant,
     merchant_domain: carrierIsMerchant && carrier !== 'Amazon' ? '' : merchantDomain(from.addr),
     order_number: real ? findOrderNumber(text) : null,
-    items: real ? findItems(subject, body, kind, msg.text && msg.html ? htmlToText(msg.html) : '') : null,
+    items: real ? findItems(subject, body, kind, htmlBody) : null,
     eta: real ? findEta(text, msg.date) : null,
     tracking_url: real ? trackingUrl(carrier, t.tracking, msg.html) : null,
     image: real && (kind === 'order' || kind === 'shipped') ? findImage(msg.html) : null

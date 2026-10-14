@@ -90,4 +90,12 @@ const reiOrder = parseEmail({ from: 'REI <rei@notices.rei.com>', subject: 'Thank
         '<tr><td>Qty: 3</td><td>$15.00</td><td>$45.00</td></tr></table>' });
 assert.strictEqual(reiOrder.items, "Trail Lamp 200 Headlamp ×3", "REI items: " + reiOrder.items);
 assert.strictEqual(reiOrder.eta, "2026-10-17", "REI eta: " + reiOrder.eta);
+
+// Forwarded by hand from the main inbox: the store, not the forwarder, is the merchant.
+const fwd = parseEmail({ from: 'Pat Example <pat@example.com>', subject: 'Fwd: Order #1187 confirmed', date: at(10, 14, 10),
+  text: '---------- Forwarded message ---------\nFrom: Corner Coffee Supply <store+123@t.shopifyemail.com>\nDate: Wed, Oct 14, 2026, 8:58 AM\nSubject: Order #1187 confirmed\nTo: <pat@example.com>\n\n[image: Corner Coffee]\nOrder #1187\nThank you for your order!\n\nWe will notify you when it\nhas been sent.\n\nEstimated delivery *Thursday, Oct 22*\nOrder summary\nAcme Mirror Scale × 1\n\n$60.77' });
+assert.strictEqual(fwd.merchant, 'Corner Coffee Supply', 'fwd merchant: ' + fwd.merchant);
+assert.strictEqual(fwd.items, 'Acme Mirror Scale', 'fwd items: ' + fwd.items);
+assert.strictEqual(fwd.kind, 'order');
+
 console.log('\nall good');
