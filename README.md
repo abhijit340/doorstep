@@ -1,4 +1,4 @@
-# Packages
+# Doorstep
 
 A personal, ad-free "where are my packages" app. It reads shipping emails, works out what each package is, who's carrying it and when it arrives, and shows that on a clean phone page.
 
