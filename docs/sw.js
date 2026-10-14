@@ -1,6 +1,6 @@
 // Caches the app shell so the page opens instantly and offline. Package data is
 // never cached here: it comes from script.google.com and is kept by the page itself.
-const CACHE = "packages-v1";
+const CACHE = "packages-v2";
 const SHELL = ["./", "style.css", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); });
 self.addEventListener("activate", e => e.waitUntil(

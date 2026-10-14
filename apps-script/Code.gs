@@ -12,9 +12,10 @@ var TAB_MAIL = 'Emails';
 // Human-readable columns first; bookkeeping columns at the end.
 var COLS = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracking_url', 'last_update',
             'ordered_at', 'delivered_at', 'order_number', 'notes', 'archived', 'image', 'merchant_domain',
-            'id', 'events'];
+            'id', 'events', 'received', 'received_at'];   // new columns go at the end so old rows still line up
 var MAIL_COLS = ['message_id', 'received', 'from', 'subject', 'kind', 'package_id'];
-var EDITABLE = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracking_url', 'notes', 'archived', 'image'];
+var EDITABLE = ['items', 'merchant', 'carrier', 'status', 'eta', 'tracking', 'tracking_url', 'notes', 'archived', 'image', 'received'];
+var BOOLS = ['archived', 'received'];
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -59,7 +60,7 @@ function readPackages_() {
     COLS.forEach(function (c, i) { o[c] = r[i]; });
     if (!o.id && !o.items && !o.tracking && !o.merchant) return;   // blank row
     o.id = Number(o.id) || 0;
-    o.archived = /^(true|yes|1|x)$/i.test(String(o.archived).trim());
+    BOOLS.forEach(function (b) { o[b] = /^(true|yes|1|x)$/i.test(String(o[b]).trim()); });
     try { o.events = o.events ? JSON.parse(o.events) : []; } catch (e) { o.events = []; }
     out.push(o);
   });
@@ -78,7 +79,7 @@ function writePackages_(pkgs) {
   var rows = pkgs.map(function (o) {
     return COLS.map(function (c) {
       if (c === 'events') return JSON.stringify(o.events || []);
-      if (c === 'archived') return o.archived ? 'TRUE' : '';
+      if (BOOLS.indexOf(c) >= 0) return o[c] ? 'TRUE' : '';
       return o[c] === null || o[c] === undefined ? '' : String(o[c]);
     });
   });
@@ -200,9 +201,13 @@ function doPost(e) {
       var pkg = pkgs.filter(function (p) { return p.id === Number(req.id); })[0];
       if (!pkg) return json_({ ok: false, error: 'no such package' });
       EDITABLE.forEach(function (f) {
-        if (req.fields && req.fields[f] !== undefined) pkg[f] = f === 'archived' ? !!req.fields[f] : String(req.fields[f]);
+        if (req.fields && req.fields[f] !== undefined) pkg[f] = BOOLS.indexOf(f) >= 0 ? !!req.fields[f] : String(req.fields[f]);
       });
       if (pkg.status === 'delivered' && !pkg.delivered_at) pkg.delivered_at = stamp_(new Date());
+      // Marking something received also means it was delivered.
+      if (pkg.received && !pkg.received_at) pkg.received_at = stamp_(new Date());
+      if (pkg.received && pkg.status !== 'delivered') { pkg.status = 'delivered'; if (!pkg.delivered_at) pkg.delivered_at = pkg.received_at; }
+      if (!pkg.received) pkg.received_at = '';
       writePackages_(pkgs);
     } finally {
       lock.releaseLock();

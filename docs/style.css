@@ -31,6 +31,13 @@ main { padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
 .thumb img.logo { width: 34px; height: 34px; object-fit: contain; }
 .card .body { flex: 1; min-width: 0; }
+.card.waiting { border-color: var(--ok); }
+.gotit { flex: 0 0 auto; align-self: center; background: var(--ok); color: #fff; border: 0; border-radius: 999px;
+  padding: 10px 14px; font-size: 14px; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .gotit { color: #0f1419; } }
+nav .count { font-weight: 700; margin-left: 2px; }
+nav .count:empty { display: none; }
+nav button { white-space: nowrap; }
 .card .items { font-weight: 600; font-size: 15.5px; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .card .eta { font-weight: 600; color: var(--accent); font-size: 14px; margin-top: 2px; }

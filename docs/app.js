@@ -13,7 +13,7 @@ const STATUS_LABEL = {
 };
 const CARRIER_ICON = { UPS: "🟫", USPS: "📬", FedEx: "🟪", Amazon: "📦", DHL: "🟨" };
 
-let view = "arriving";
+let view = "delivered";
 let data = { packages: [], last_run: "" };
 let current = null;
 
@@ -46,7 +46,9 @@ function dayDiff(ymd) {
   return Math.round((new Date(ymd + "T00:00:00") - today) / 86400000);
 }
 function etaLabel(p) {
-  if (p.status === "delivered") return "Delivered " + fmtDate(p.delivered_at || p.last_update);
+  if (p.received) return "Picked up " + fmtDate(p.received_at || p.last_update);
+  if (p.archived && p.status !== "delivered") return "Archived";
+  if (p.status === "delivered") return "Delivered " + fmtDate(p.delivered_at || p.last_update) + " — check for it";
   if (p.status === "out_for_delivery") return "Out for delivery today";
   if (!p.eta) return STATUS_LABEL[p.status] || "";
   const diff = dayDiff(p.eta);
@@ -56,7 +58,8 @@ function etaLabel(p) {
   return "Arriving " + fmtDate(p.eta);
 }
 function etaClass(p) {
-  if (p.status === "delivered") return "eta";
+  if (p.received || p.archived) return "eta";
+  if (p.status === "delivered") return "eta today";
   if (p.status === "out_for_delivery") return "eta today";
   if (!p.eta) return "eta";
   const diff = dayDiff(p.eta);
@@ -79,18 +82,22 @@ document.addEventListener("error", e => {
   if (t.tagName === "IMG" && t.dataset.fallback) t.parentNode.textContent = t.dataset.fallback;
 }, true);
 
+// Views: "delivered" = at the door, not yet picked up (stays until you tap Got it);
+// "arriving" = still in transit; "done" = picked up or archived, last 30 days.
+function viewOf(p) {
+  if (p.archived || p.received) return "done";
+  return p.status === "delivered" ? "delivered" : "arriving";
+}
 function inView(p) {
-  if (view === "archived") return p.archived;
-  if (p.archived) return false;
-  if (view === "delivered") {
-    if (p.status !== "delivered") return false;
-    const when = new Date(p.delivered_at || p.last_update);
+  if (viewOf(p) !== view) return false;
+  if (view === "done") {
+    const when = new Date(p.received_at || p.delivered_at || p.last_update);
     return isNaN(when) || (Date.now() - when) / 86400000 <= KEEP_DELIVERED_DAYS;
   }
-  return p.status !== "delivered";
+  return true;
 }
 function sortKey(p) {
-  if (view !== "arriving") return [0, -(new Date(p.delivered_at || p.last_update).getTime() || 0)];
+  if (view !== "arriving") return [0, -(new Date(p.received_at || p.delivered_at || p.last_update).getTime() || 0)];
   if (p.status === "out_for_delivery") return [0, 0];
   return [p.eta ? 1 : 2, p.eta ? new Date(p.eta).getTime() : -(new Date(p.last_update).getTime() || 0)];
 }
@@ -101,19 +108,29 @@ function render() {
     const x = sortKey(a), y = sortKey(b);
     return x[0] - y[0] || x[1] - y[1];
   });
-  list.innerHTML = rows.length ? "" : `<div class="empty">${view === "arriving" ? "Nothing on the way." : "Nothing here."}</div>`;
+  const EMPTY = { delivered: "Nothing waiting for you.", arriving: "Nothing on the way.", done: "Nothing picked up in the last 30 days." };
+  list.innerHTML = rows.length ? "" : `<div class="empty">${EMPTY[view]}</div>`;
   for (const p of rows) {
     const el = document.createElement("div");
-    el.className = "card";
+    el.className = "card" + (view === "delivered" ? " waiting" : "");
     el.innerHTML = `${thumb(p)}
       <div class="body">
         <div class="items">${esc(title(p))}</div>
         <div class="${etaClass(p)}">${esc(etaLabel(p))}</div>
         <div class="meta">${p.merchant ? `<span class="chip">${esc(p.merchant)}</span>` : ""}${p.carrier ? `<span class="chip">${esc(p.carrier)}</span>` : ""}${esc(STATUS_LABEL[p.status] || "")}</div>
-      </div>`;
+      </div>
+      ${view === "delivered" ? `<button class="gotit" aria-label="Mark as received">Got it</button>` : ""}`;
     el.onclick = () => openSheet(p.id);
+    const got = el.querySelector(".gotit");
+    if (got) got.onclick = e => { e.stopPropagation(); edit(p, { received: true }); };
     list.appendChild(el);
   }
+  // Tab counts, and the home-screen icon badge for packages waiting at the door.
+  const n = v => data.packages.filter(p => viewOf(p) === v).length;
+  const waiting = n("delivered");
+  $("count-delivered").textContent = waiting ? waiting : "";
+  $("count-arriving").textContent = n("arriving") || "";
+  if (navigator.setAppBadge) { try { waiting ? navigator.setAppBadge(waiting) : navigator.clearAppBadge(); } catch (e) {} }
   const st = $("status");
   st.className = "";
   st.textContent = data.last_run ? `Mail checked ${fmtDate(data.last_run, true)}` : "Mail not checked yet";
@@ -155,7 +172,10 @@ function openSheet(id) {
   $("detail").innerHTML = `
     <div class="hero">${thumb(p)}<div><h2>${esc(title(p))}</h2><div class="${etaClass(p)}">${esc(etaLabel(p))}</div></div></div>
     <div class="row">
-      ${track ? `<a class="primary" href="${esc(track)}" target="_blank" rel="noopener noreferrer">Track on ${esc(p.carrier || "carrier site")}</a>` : ""}
+      <button id="received" class="${p.received ? "" : "primary"}">${p.received ? "Not picked up yet" : "Got it — mark received"}</button>
+    </div>
+    <div class="row">
+      ${track ? `<a href="${esc(track)}" target="_blank" rel="noopener noreferrer">Track on ${esc(p.carrier || "carrier site")}</a>` : ""}
       ${p.tracking ? `<button id="copy">Copy ${esc(p.tracking)}</button>` : ""}
     </div>
     <label>What's in it</label><input id="f-items" value="${esc(p.items)}">
@@ -174,20 +194,23 @@ function openSheet(id) {
   $("sheet").classList.remove("hidden");
   $("save").onclick = () => {
     const v = f => $(f).value;
-    edit({ items: v("f-items"), merchant: v("f-merchant"), carrier: v("f-carrier"), tracking: v("f-tracking"),
-           eta: v("f-eta"), status: v("f-status"), notes: v("f-notes") });
+    edit(p, { items: v("f-items"), merchant: v("f-merchant"), carrier: v("f-carrier"), tracking: v("f-tracking"),
+              eta: v("f-eta"), status: v("f-status"), notes: v("f-notes") });
   };
-  $("archive").onclick = () => edit({ archived: !p.archived });
+  $("archive").onclick = () => edit(p, { archived: !p.archived });
+  $("received").onclick = () => edit(p, { received: !p.received });
   const copy = $("copy");
   if (copy) copy.onclick = () => navigator.clipboard && navigator.clipboard.writeText(p.tracking);
 }
 
-async function edit(fields) {
-  const id = current.id;
-  Object.assign(current, fields);          // show the change right away
+async function edit(p, fields) {
+  // Show the change right away; the server's answer replaces it a moment later.
+  Object.assign(p, fields);
+  if (fields.received === true) { p.received_at = p.received_at || new Date().toISOString(); if (p.status !== "delivered") p.status = "delivered"; }
+  if (fields.received === false) p.received_at = "";
   $("sheet").classList.add("hidden");
   render();
-  await load({ action: "edit", id, fields });
+  await load({ action: "edit", id: p.id, fields });
 }
 
 function start() {
@@ -206,8 +229,21 @@ function start() {
   $("setup").classList.add("hidden");
   $("app").classList.remove("hidden");
   $("refresh").classList.remove("hidden");
-  try { const c = JSON.parse(store.get("pt.cache") || "null"); if (c) { data = c; render(); } } catch (e) {}
-  load();
+  try { const c = JSON.parse(store.get("pt.cache") || "null"); if (c) { data = c; } } catch (e) {}
+  pickDefaultView();
+  render();
+  load().then(() => { if (!userPickedView) { pickDefaultView(); render(); } });
+}
+
+// Open on Delivered when something is waiting at the door, otherwise on On the way.
+let userPickedView = false;
+function pickDefaultView() {
+  const waiting = data.packages.some(p => viewOf(p) === "delivered");
+  setView(waiting ? "delivered" : "arriving");
+}
+function setView(v) {
+  view = v;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
 }
 
 $("connect").onclick = () => {
@@ -219,8 +255,7 @@ $("disconnect").onclick = e => { e.preventDefault(); store.del("pt.link"); store
 $("close").onclick = () => $("sheet").classList.add("hidden");
 $("sheet").onclick = e => { if (e.target === $("sheet")) $("sheet").classList.add("hidden"); };
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button").forEach(x => x.classList.remove("active"));
-  b.classList.add("active"); view = b.dataset.view; render();
+  userPickedView = true; setView(b.dataset.view); render();
 });
 $("refresh").onclick = () => load({ action: "refresh" });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && conn()) load(); });

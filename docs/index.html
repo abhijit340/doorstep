@@ -29,9 +29,9 @@
 
 <div id="app" class="hidden">
   <nav>
-    <button data-view="arriving" class="active">Arriving</button>
-    <button data-view="delivered">Delivered</button>
-    <button data-view="archived">Archived</button>
+    <button data-view="delivered" class="active">Delivered <span class="count" id="count-delivered"></span></button>
+    <button data-view="arriving">On the way <span class="count" id="count-arriving"></span></button>
+    <button data-view="done">Done</button>
   </nav>
   <main id="list"></main>
   <p id="status"></p>
