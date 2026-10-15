@@ -18,7 +18,7 @@
 <article>
 <p>Doorstep reads the shipping emails in <b>your</b> Gmail and shows your packages on your phone: what's arriving, and what's been delivered and is waiting at the door. It takes about 5 minutes on a computer. No apps to install, no coding.</p>
 
-<p class="note">Everything runs inside your own Google account: a Google Sheet you own, plus a small script attached to it. It reads your inbox (read-only) and writes your packages into that sheet. Nobody else, including whoever sent you this page, can see your mail or your list.</p>
+<p class="note">Everything runs inside your own Google account: a Google Sheet you own, a small script attached to it, and the app page that script serves. It reads your inbox (read-only) and writes your packages into that sheet. Once you've made your copy, nothing depends on whoever sent you this page, and nobody else can see your mail or your list.</p>
 
 <h2>On a computer</h2>
 <ol>
@@ -28,21 +28,21 @@
     <ul>
       <li>Google asks for permission. Click <b>Continue</b> and pick your account.</li>
       <li>You'll see <b>"Google hasn't verified this app."</b> That's normal: the "app" is your own copy, which nobody has submitted to Google for review. Click <b>Advanced</b>, then <b>Go to Doorstep (unsafe)</b>, then <b>Allow</b>.</li>
-      <li>It asks to read your Gmail (read-only), edit this one spreadsheet, run on a timer, and show menus in the sheet.</li>
+      <li>It asks to read your Gmail (read-only), edit this one spreadsheet, run on a timer, show menus in the sheet, and see your email address (so the app page opens only for you).</li>
       <li>After allowing, choose <b>Doorstep › 1. Set up</b> once more. When it says "Doorstep is set up", it has filled the <b>Packages</b> tab from the last 30 days of mail.</li>
     </ul>
   </li>
 
-  <li><b>Turn on the phone link.</b> Choose <b>Extensions › Apps Script</b>. In the new tab, click the blue <b>Deploy</b> button › <b>New deployment</b>. Click the gear next to "Select type" and pick <b>Web app</b>. Leave <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then click <b>Deploy</b> (allow again if asked). Click <b>Copy</b> under <b>Web app URL</b>.
-    <p class="note">"Anyone" only means the phone page can reach it without a Google sign-in. It answers only requests that carry your secret key, which lives in the link you make next.</p>
+  <li><b>Turn on the phone link.</b> Choose <b>Extensions › Apps Script</b>. In the new tab, click the blue <b>Deploy</b> button › <b>New deployment</b>. Click the gear next to "Select type" and pick <b>Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Only myself</b>, then click <b>Deploy</b> (allow again if asked). Click <b>Copy</b> under <b>Web app URL</b>.
+    <p class="note">"Only myself" means the page opens only when you're signed in to this Google account. There's no password or secret link to keep safe.</p>
   </li>
 
-  <li><b>Make your phone link.</b> Back in the sheet, choose <b>Doorstep › 2. Connect my phone</b> and paste the Web app URL. A QR code appears.</li>
+  <li><b>Get the QR code.</b> Back in the sheet, choose <b>Doorstep › 2. Connect my phone</b> and paste the Web app URL. A QR code appears.</li>
 </ol>
 
 <h2>On your phone</h2>
 <ol>
-  <li>Point your camera at the QR code and open the link.</li>
+  <li>Point your camera at the QR code and open the link in Chrome (Android) or Safari (iPhone). Your phone needs to be signed in to the same Google account. If Google shows an error and you have several accounts on the phone, open the link in a private tab and sign in with just this one.</li>
   <li>Add it to your home screen: <b>Android (Chrome):</b> ⋮ › Add to home screen › Install. <b>iPhone (Safari):</b> Share › Add to Home Screen.</li>
 </ol>
 
@@ -51,7 +51,6 @@
   <li><b>Delivered</b> is the first tab: packages stay there until you tap <b>Got it</b>. <b>On the way</b> shows what's coming, and <b>Done</b> keeps the last 30 days.</li>
   <li>Mail is checked every 15 minutes. <b>Check mail</b> in the app does it right away.</li>
   <li>Tap any package to fix its name or date, or archive it. You can also edit the sheet directly.</li>
-  <li>Your phone link works like a password. If it ever leaks, choose <b>Doorstep › Replace secret key</b> and reconnect.</li>
   <li>To stop it completely, delete your copy of the sheet. You can also remove its access at <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>.</li>
 </ul>
 

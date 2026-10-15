@@ -17,7 +17,11 @@ let view = "delivered";
 let data = { packages: [], last_run: "" };
 let current = null;
 
+// Served by the tracker's own Apps Script (no hosted page, no key): talk to it directly.
+const EMBED = typeof google !== "undefined" && !!(google.script && google.script.run);
+
 function conn() {
+  if (EMBED) return { embed: true };
   const link = store.get("pt.link");
   if (!link) return null;
   try {
@@ -142,7 +146,10 @@ async function call(body) {
   const c = conn();
   if (!c) throw new Error("not connected");
   let res;
-  if (body) {
+  if (c.embed) {
+    res = { json: () => new Promise((ok, fail) =>
+      google.script.run.withSuccessHandler(ok).withFailureHandler(fail).api(body || null)) };
+  } else if (body) {
     // text/plain keeps this a "simple" request, which Apps Script web apps accept cross-origin.
     res = await fetch(c.base, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
                                 body: JSON.stringify(Object.assign({ key: c.key }, body)) });
@@ -274,5 +281,6 @@ $("refresh").onclick = async () => {
 };
 document.addEventListener("visibilitychange", () => { if (!document.hidden && conn()) load(); });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if (EMBED) document.querySelectorAll(".hosted-only").forEach(el => el.remove());
+else if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 start();

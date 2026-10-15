@@ -179,9 +179,32 @@ function snapshot_() {
   return { ok: true, packages: readPackages_(), last_run: props_().getProperty('LAST_RUN') || '' };
 }
 
+/**
+ * Two ways in:
+ *  - ?key=…  JSON for the hosted phone page (the original setup).
+ *  - no key  the phone page itself, served from this script, for the account that owns it only.
+ *            Deploy with "Who has access: Only myself" and nothing outside this Google account is involved.
+ */
 function doGet(e) {
-  if (!keyOk_(e && e.parameter && e.parameter.key)) return json_({ ok: false, error: 'bad key' });
-  return json_(snapshot_());
+  var key = e && e.parameter && e.parameter.key;
+  if (key) return keyOk_(key) ? json_(snapshot_()) : json_({ ok: false, error: 'bad key' });
+  if (!owner_()) return HtmlService.createHtmlOutput('<p style="font-family:sans-serif">Sign in with the Google account that owns this tracker.</p>');
+  return HtmlService.createHtmlOutputFromFile('App')
+    .setTitle('Doorstep')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+/** The signed-in visitor is the account this script runs as. False for anonymous visitors. */
+function owner_() {
+  var me = Session.getEffectiveUser().getEmail();
+  var visitor = Session.getActiveUser().getEmail();
+  return !!me && visitor === me;
+}
+
+/** Called by the self-served page via google.script.run. Same shape as the JSON API. */
+function api(req) {
+  if (!owner_()) return { ok: false, error: 'not allowed' };
+  return req ? handle_(req) : snapshot_();
 }
 
 /** Body: {key, action: 'edit', id, fields: {...}} or {key, action: 'refresh'}. */
@@ -189,9 +212,13 @@ function doPost(e) {
   var req;
   try { req = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: 'bad request' }); }
   if (!keyOk_(req.key)) return json_({ ok: false, error: 'bad key' });
+  return json_(handle_(req));
+}
+
+function handle_(req) {
   if (req.action === 'refresh') {
-    try { poll(); } catch (err) { return json_({ ok: false, error: String(err) }); }
-    return json_(snapshot_());
+    try { poll(); } catch (err) { return { ok: false, error: String(err) }; }
+    return snapshot_();
   }
   if (req.action === 'edit') {
     var lock = LockService.getScriptLock();
@@ -199,7 +226,7 @@ function doPost(e) {
     try {
       var pkgs = readPackages_();
       var pkg = pkgs.filter(function (p) { return p.id === Number(req.id); })[0];
-      if (!pkg) return json_({ ok: false, error: 'no such package' });
+      if (!pkg) return { ok: false, error: 'no such package' };
       EDITABLE.forEach(function (f) {
         if (req.fields && req.fields[f] !== undefined) pkg[f] = BOOLS.indexOf(f) >= 0 ? !!req.fields[f] : String(req.fields[f]);
       });
@@ -212,7 +239,7 @@ function doPost(e) {
     } finally {
       lock.releaseLock();
     }
-    return json_(snapshot_());
+    return snapshot_();
   }
-  return json_({ ok: false, error: 'unknown action' });
+  return { ok: false, error: 'unknown action' };
 }

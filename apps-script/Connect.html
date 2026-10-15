@@ -19,15 +19,13 @@
   <input id="url" placeholder="https://script.google.com/macros/s/…/exec" value="<?= url ?>">
   <p id="err" class="err"></p>
   <div id="out" hidden>
-    <div class="step">Scan this with your phone's camera, open it in Chrome (Android) or Safari (iPhone), then use <b>Add to Home screen</b>.</div>
+    <div class="step">Scan this with your phone's camera, open it in Chrome (Android) or Safari (iPhone), then use <b>Add to Home screen</b>. Your phone's browser must be signed in to this same Google account.</div>
     <div id="qr"></div>
     <a class="big" id="link" target="_blank"></a>
     <p><button id="copy">Copy link</button></p>
-    <p class="fine">This link works like a password: anyone with it can see your package list. Send it only to yourself.</p>
+    <p class="fine">Only your Google account can open this page, because the web app is set to "Only myself".</p>
   </div>
 <script>
-  var KEY = <?= JSON.stringify(key) ?>;
-  var APP = 'https://doorstep-aj.pages.dev/';
   function build() {
     var u = document.getElementById('url').value.trim();
     var err = document.getElementById('err'), out = document.getElementById('out');
@@ -37,7 +35,7 @@
       return;
     }
     err.textContent = '';
-    var link = APP + '#link=' + encodeURIComponent(u + '?key=' + KEY);
+    var link = u;
     var a = document.getElementById('link');
     a.href = a.textContent = link;
     var qr = document.getElementById('qr');

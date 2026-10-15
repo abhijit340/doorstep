@@ -16,6 +16,8 @@ $ErrorActionPreference = "Stop"
 $env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;$env:Path"
 
 node "$PSScriptRoot\..\tests\parse_test.js" | Select-Object -Last 1
+node "$PSScriptRoot\build_app.js"
+if ($LASTEXITCODE -ne 0) { throw "build_app failed" }
 if ($LASTEXITCODE -ne 0) { throw "Publish blocked: parser tests failed." }
 
 # The live deployment is the one pinned to a version number (not @HEAD).
