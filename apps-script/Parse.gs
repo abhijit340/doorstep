@@ -142,6 +142,9 @@ function findOrderNumber(text) {
     var c = m[1];
     if (/\d/.test(c) && !/^(number|confirm\w*|details?|status|total|date)$/i.test(c)) return c;
   }
+  // "Order Confirmation (#73957)": the number comes after other words.
+  var m2 = /\border\b[^\n#]{0,40}#\s?([A-Z0-9][A-Z0-9\-]{3,24})\b/i.exec(text);
+  if (m2 && /\d/.test(m2[1])) return m2[1];
   return null;
 }
 
@@ -297,6 +300,16 @@ function parseEmail(msg) {
   };
 }
 
+/** "Cafe Campesino Roastery" (the shop) and "Cafe Campesino" (its shipping service) are the same store. */
+function sameMerchant_(a, b) {
+  var norm = function (s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\b(roastery|roasters?|coffee|co|company|inc|llc|shop|store|supply)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+  var x = norm(a), y = norm(b);
+  return !!x && !!y && (x === y || x.indexOf(y) === 0 || y.indexOf(x) === 0);
+}
+
 function findPackage(pkgs, p) {
   var i;
   if (p.tracking) for (i = 0; i < pkgs.length; i++) if (pkgs[i].tracking === p.tracking) return pkgs[i];
@@ -305,7 +318,7 @@ function findPackage(pkgs, p) {
     var now = new Date(p.received).getTime(), window = 21 * 86400000;
     for (i = pkgs.length - 1; i >= 0; i--) {
       var k = pkgs[i];
-      if (k.merchant === p.merchant && !k.tracking && k.status === 'ordered' &&
+      if (sameMerchant_(k.merchant, p.merchant) && !k.tracking && k.status === 'ordered' &&
           Math.abs(new Date(k.last_update).getTime() - now) <= window) return k;
     }
   }

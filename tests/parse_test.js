@@ -98,4 +98,14 @@ assert.strictEqual(fwd.merchant, 'Corner Coffee Supply', 'fwd merchant: ' + fwd.
 assert.strictEqual(fwd.items, 'Acme Mirror Scale', 'fwd items: ' + fwd.items);
 assert.strictEqual(fwd.kind, 'order');
 
+// Order confirmed by the shop, shipped through ShipStation under a slightly different name: one package.
+const two = [];
+applyEmail(two, parseEmail({ from: '"Corner Coffee Roastery" <info@cornercoffee.example>', date: at(10, 13, 3),
+  subject: 'Your Corner Coffee Roastery Order Confirmation (#73957)', text: 'Soon you will receive your tracking information.' }));
+assert.strictEqual(two[0].order_number, '73957', 'order number from "(#73957)": ' + two[0].order_number);
+applyEmail(two, parseEmail({ from: 'Corner Coffee <tracking@shipstation.com>', date: at(10, 15, 8),
+  subject: 'Your Corner Coffee order 73957 has shipped', text: 'Your order 73957 was shipped via USPS Priority Mail. Track: 9405550106151069020021' }));
+assert.strictEqual(two.length, 1, 'shipping email joins the order, got ' + two.length);
+assert.strictEqual(two[0].status, 'shipped');
+
 console.log('\nall good');
