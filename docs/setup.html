@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Doorstep – Set up your own</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+<style>
+  article ol > li { margin-bottom: 14px; }
+  article ul { margin: 6px 0; }
+  .note { border-left: 3px solid var(--line, #3a4655); padding-left: 10px; opacity: .85; }
+</style>
+</head>
+<body>
+<header><h1>Set up your own Doorstep</h1></header>
+<article>
+<p>Doorstep reads the shipping emails in <b>your</b> Gmail and shows your packages on your phone: what's arriving, and what's been delivered and is waiting at the door. It takes about 5 minutes on a computer. No apps to install, no coding.</p>
+
+<p class="note">Everything runs inside your own Google account: a Google Sheet you own, plus a small script attached to it. It reads your inbox (read-only) and writes your packages into that sheet. Nobody else, including whoever sent you this page, can see your mail or your list.</p>
+
+<h2>On a computer</h2>
+<ol>
+  <li><b>Copy the template.</b> Open the template link you were sent (it ends in <code>/copy</code>), make sure the account in the top-right is your Gmail, and click <b>Make a copy</b>.</li>
+
+  <li><b>Run setup.</b> In your copy, wait a few seconds for a <b>Doorstep</b> menu to appear next to Help (reload the page if it doesn't). Choose <b>Doorstep › 1. Set up</b>.
+    <ul>
+      <li>Google asks for permission. Click <b>Continue</b> and pick your account.</li>
+      <li>You'll see <b>"Google hasn't verified this app."</b> That's normal: the "app" is your own copy, which nobody has submitted to Google for review. Click <b>Advanced</b>, then <b>Go to Doorstep (unsafe)</b>, then <b>Allow</b>.</li>
+      <li>It asks to read your Gmail (read-only), edit this one spreadsheet, run on a timer, and show menus in the sheet.</li>
+      <li>After allowing, choose <b>Doorstep › 1. Set up</b> once more. When it says "Doorstep is set up", it has filled the <b>Packages</b> tab from the last 30 days of mail.</li>
+    </ul>
+  </li>
+
+  <li><b>Turn on the phone link.</b> Choose <b>Extensions › Apps Script</b>. In the new tab, click the blue <b>Deploy</b> button › <b>New deployment</b>. Click the gear next to "Select type" and pick <b>Web app</b>. Leave <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then click <b>Deploy</b> (allow again if asked). Click <b>Copy</b> under <b>Web app URL</b>.
+    <p class="note">"Anyone" only means the phone page can reach it without a Google sign-in. It answers only requests that carry your secret key, which lives in the link you make next.</p>
+  </li>
+
+  <li><b>Make your phone link.</b> Back in the sheet, choose <b>Doorstep › 2. Connect my phone</b> and paste the Web app URL. A QR code appears.</li>
+</ol>
+
+<h2>On your phone</h2>
+<ol>
+  <li>Point your camera at the QR code and open the link.</li>
+  <li>Add it to your home screen: <b>Android (Chrome):</b> ⋮ › Add to home screen › Install. <b>iPhone (Safari):</b> Share › Add to Home Screen.</li>
+</ol>
+
+<h2>Good to know</h2>
+<ul>
+  <li><b>Delivered</b> is the first tab: packages stay there until you tap <b>Got it</b>. <b>On the way</b> shows what's coming, and <b>Done</b> keeps the last 30 days.</li>
+  <li>Mail is checked every 15 minutes. <b>Check mail</b> in the app does it right away.</li>
+  <li>Tap any package to fix its name or date, or archive it. You can also edit the sheet directly.</li>
+  <li>Your phone link works like a password. If it ever leaks, choose <b>Doorstep › Replace secret key</b> and reconnect.</li>
+  <li>To stop it completely, delete your copy of the sheet. You can also remove its access at <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>.</li>
+</ul>
+
+<p><a href="./">Back to Doorstep</a> · <a href="privacy.html">Privacy</a></p>
+</article>
+</body>
+</html>

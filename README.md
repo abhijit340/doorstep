@@ -20,6 +20,8 @@ Parsing is plain rules (regular expressions) in `apps-script/Parse.gs`. No AI se
 
 ## Set up your own
 
+**Easiest:** make a copy of the template sheet and follow https://doorstep-aj.pages.dev/setup.html (no tools needed; the sheet gets a Doorstep menu for setup and a QR code for your phone). The steps below are the developer route.
+
 1. **A dedicated inbox (recommended).** Create a Gmail account just for this, and in your main Gmail add a filter that forwards shipping emails to it. The script then can only ever see forwarded shipping mail, never your main inbox. A filter that works well, pasted into "Has the words":
 
    ```
