@@ -108,4 +108,13 @@ applyEmail(two, parseEmail({ from: 'Corner Coffee <tracking@shipstation.com>', d
 assert.strictEqual(two.length, 1, 'shipping email joins the order, got ' + two.length);
 assert.strictEqual(two[0].status, 'shipped');
 
+// Big-box layout (Best Buy): product line, then price, then "Qty"; page <title> must not leak into items.
+const bb = parseEmail({ from: 'Best Buy <BestBuyInfo@emailinfo.bestbuy.com>', subject: "We've got your order, Pat!", date: at(10, 15, 10),
+  html: '<html><head><title>Best Buy | We\'ve got your order | NES_OrderConfirmation</title></head><body>' +
+        '<div>See inside for details.</div><div>Order #:</div><div>BBY01-807290221678</div><div>Arriving</div><div>Friday, Oct 16</div>' +
+        '<div>Acme - Wireless Controller for Consoles, PC, Android, Hall Effect Triggers, 1000Hz Polling</div><div>$79.99</div><div>Qty: 2</div>' +
+        '<div>Order summary</div><div>$88.43</div></body></html>' });
+assert.strictEqual(bb.items, 'Acme - Wireless Controller for Consoles ×2', 'Best Buy items: ' + bb.items);
+assert.strictEqual(bb.eta, '2026-10-16');
+
 console.log('\nall good');

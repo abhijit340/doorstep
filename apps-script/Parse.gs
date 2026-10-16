@@ -61,7 +61,7 @@ function decodeEntities(t) {
 
 function htmlToText(html) {
   var t = String(html || '');
-  t = t.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ');
+  t = t.replace(/<(script|style|title|head)[\s\S]*?<\/\1>/gi, ' ');
   t = t.replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>|<\/li>|<\/h\d>/gi, '\n');
   t = t.replace(/<\/td>/gi, '  ');
   t = t.replace(/<[^>]+>/g, ' ');
@@ -196,6 +196,16 @@ function findItems(subject, body, kind, htmlBody) {
     if (sm) {
       var nm = sm[1].trim() + (Number(sm[2]) > 1 ? ' ×' + sm[2] : '');
       if (!seen[nm.toLowerCase()]) { seen[nm.toLowerCase()] = true; out.push(nm); }
+      continue;
+    }
+    // Best Buy and many stores: "Product name" on one line, then "$79.99", then "Qty: 1".
+    var cur = itemLines[j].trim(), nxt = (itemLines[j + 1] || '').trim();
+    if (!im && /^\$\s?\d[\d,]*\.\d\d$/.test(nxt) && /[a-z]{3}/i.test(cur) && cur.length >= 6 &&
+        !/^(\$|qty|quantity|order|sub ?total|total|tax|shipping|estimated|includes|discount|savings|price)/i.test(cur)) {
+      var pn = cur.length > 60 ? cur.slice(0, cur.indexOf(',', 20) > 0 ? cur.indexOf(',', 20) : 60).trim() : cur;
+      var pq = /\bqty:?\s*(\d+)/i.exec(itemLines.slice(j + 1, j + 4).join(' '));
+      if (pq && Number(pq[1]) > 1) pn += ' ×' + pq[1];
+      if (!seen[pn.toLowerCase()]) { seen[pn.toLowerCase()] = true; out.push(pn); }
       continue;
     }
     if (!im) continue;
