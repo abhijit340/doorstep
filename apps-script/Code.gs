@@ -275,6 +275,10 @@ function handle_(req) {
                    notify: props_().getProperty('NOTIFY') !== 'off' };
     return s;
   }
+  if (req.action === 'digest') {   // send today's "arriving today" email now (also a way to test notifications)
+    morningDigest();
+    return snapshot_();
+  }
   if (req.action === 'refresh') {
     try { poll(); } catch (err) { return { ok: false, error: String(err) }; }
     return snapshot_();
