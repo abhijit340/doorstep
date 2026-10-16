@@ -149,9 +149,14 @@ function poll() {
     msgs.sort(function (a, b) { return a.date - b.date; });   // oldest first, so status moves forward
 
     var pkgs = readPackages_();
+    var before = {};
+    pkgs.forEach(function (k) { before[k.id] = k.status; });
+    var self = Session.getEffectiveUser().getEmail().toLowerCase();
     var log = [], filed = 0;
     msgs.forEach(function (m) {
       var p = parseEmail(m), pkgId = '';
+      // Our own notifications can come back through a forwarding filter; never file them as packages.
+      if (parseFrom(m.from).addr === self || /^Doorstep:/.test(m.subject)) p.kind = 'ignored';
       if (p.kind !== 'ignored') { pkgId = applyEmail(pkgs, p).id; filed++; }
       log.push([m.id, p.received, m.from, p.subject, p.kind, String(pkgId)]);
     });
@@ -160,10 +165,51 @@ function poll() {
       mailTab.getRange(mailTab.getLastRow() + 1, 1, log.length, MAIL_COLS.length).setNumberFormat('@').setValues(log);
     }
     props_().setProperty('LAST_RUN', new Date().toISOString());
+    if (!firstRun) {
+      var delivered = pkgs.filter(function (k) {
+        return k.status === 'delivered' && before[k.id] !== 'delivered' && !k.received && !k.archived;
+      });
+      if (delivered.length) notify_('Delivered: ' + delivered.map(label_).join(', '), 'Check the door for:', delivered);
+    }
+    ensureDigestTrigger_();
     return { emails: msgs.length, filed: filed, packages: pkgs.length };
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---- Notifications: an 8 AM email listing today's arrivals, and one when something is delivered. ----
+// They go to NOTIFY_EMAIL (Script Properties), or to this account if that isn't set.
+
+function label_(k) { return k.items || k.merchant || 'a package'; }
+
+function notify_(subject, intro, pkgs) {
+  var to = props_().getProperty('NOTIFY_EMAIL') || Session.getEffectiveUser().getEmail();
+  if (!to || props_().getProperty('NOTIFY') === 'off') return;
+  var app = props_().getProperty('APP_URL') || ScriptApp.getService().getUrl() || '';
+  var esc = function (s) { return String(s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var rows = pkgs.map(function (k) {
+    var bits = [k.merchant, k.carrier].filter(String).join(' · ');
+    var track = /^https:\/\//.test(k.tracking_url) ? ' — <a href="' + esc(k.tracking_url) + '">track</a>' : '';
+    return '<li><b>' + esc(label_(k)) + '</b>' + (bits ? ' (' + esc(bits) + ')' : '') + track + '</li>';
+  }).join('');
+  var html = '<p>' + esc(intro) + '</p><ul>' + rows + '</ul>' + (app ? '<p><a href="' + esc(app) + '">Open Doorstep</a></p>' : '');
+  MailApp.sendEmail({ to: to, subject: 'Doorstep: ' + subject, htmlBody: html, name: 'Doorstep' });
+}
+
+/** Runs daily around 8 AM: one email if anything is due or out for delivery today. */
+function morningDigest() {
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var due = readPackages_().filter(function (k) {
+    if (k.archived || k.received || k.status === 'delivered') return false;
+    return k.status === 'out_for_delivery' || k.eta === today;
+  });
+  if (due.length) notify_('Arriving today: ' + due.map(label_).join(', '), 'Expected today:', due);
+}
+
+function ensureDigestTrigger_() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'morningDigest'; });
+  if (!has) ScriptApp.newTrigger('morningDigest').timeBased().atHour(8).everyDays(1).create();
 }
 
 function json_(obj) {
@@ -216,6 +262,19 @@ function doPost(e) {
 }
 
 function handle_(req) {
+  if (req.action === 'settings') {
+    var f = req.fields || {};
+    if (f.notify_email !== undefined) {
+      if (f.notify_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.notify_email)) return { ok: false, error: 'bad email' };
+      props_().setProperty('NOTIFY_EMAIL', String(f.notify_email));
+    }
+    if (f.app_url !== undefined) props_().setProperty('APP_URL', /^https:\/\//.test(f.app_url) ? f.app_url : '');
+    if (f.notify !== undefined) props_().setProperty('NOTIFY', f.notify ? 'on' : 'off');
+    var s = snapshot_();
+    s.settings = { notify_email: props_().getProperty('NOTIFY_EMAIL') || '', app_url: props_().getProperty('APP_URL') || '',
+                   notify: props_().getProperty('NOTIFY') !== 'off' };
+    return s;
+  }
   if (req.action === 'refresh') {
     try { poll(); } catch (err) { return { ok: false, error: String(err) }; }
     return snapshot_();
