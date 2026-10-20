@@ -160,7 +160,8 @@ function poll() {
       if (p.kind !== 'ignored') { pkgId = applyEmail(pkgs, p).id; filed++; }
       log.push([m.id, p.received, m.from, p.subject, p.kind, String(pkgId)]);
     });
-    if (filed) writePackages_(pkgs);
+    var carrierChanged = checkCarriers_(pkgs);   // USPS: catches deliveries no email tells us about
+    if (filed || carrierChanged) writePackages_(pkgs);
     if (log.length) {
       mailTab.getRange(mailTab.getLastRow() + 1, 1, log.length, MAIL_COLS.length).setNumberFormat('@').setValues(log);
     }
@@ -172,7 +173,7 @@ function poll() {
       if (delivered.length) notify_('Delivered: ' + delivered.map(label_).join(', '), 'Check the door for:', delivered);
     }
     ensureDigestTrigger_();
-    return { emails: msgs.length, filed: filed, packages: pkgs.length };
+    return { emails: msgs.length, filed: filed, carrier_updates: carrierChanged, packages: pkgs.length };
   } finally {
     lock.releaseLock();
   }

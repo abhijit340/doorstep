@@ -16,6 +16,8 @@ $ErrorActionPreference = "Stop"
 $env:Path = "C:\Program Files\nodejs;$env:APPDATA\npm;$env:Path"
 
 node "$PSScriptRoot\..\tests\parse_test.js" | Select-Object -Last 1
+node "$PSScriptRoot\..\tests\carrier_test.js" | Select-Object -Last 1
+if ($LASTEXITCODE -ne 0) { throw "Publish blocked: carrier tests failed." }
 node "$PSScriptRoot\build_app.js"
 if ($LASTEXITCODE -ne 0) { throw "build_app failed" }
 if ($LASTEXITCODE -ne 0) { throw "Publish blocked: parser tests failed." }
