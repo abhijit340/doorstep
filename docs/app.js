@@ -196,8 +196,10 @@ function openSheet(id) {
       <button id="save" class="primary">Save</button>
       <button id="archive">${p.archived ? "Unarchive" : "Archive"}</button>
     </div>
-    <ul class="timeline">${(p.events || []).map(e => `<li><div>${esc(STATUS_LABEL[e.s] || e.s)} — ${esc(e.t)}</div>
-      <div class="when">${esc(fmtDate(e.at, true))}${e.f ? " · " + esc(e.f) : ""}</div></li>`).join("")}</ul>`;
+    <ul class="timeline">${(p.events || []).map((e, i) => `<li><div>${esc(STATUS_LABEL[e.s] || e.s)} — ${esc(cleanSubject(e.t))}</div>
+      <div class="when">${esc(fmtDate(e.at, true))}${e.f ? " · " + esc(e.f) : ""}</div>
+      ${cleanSubject(e.t) ? `<div class="ev-actions"><a href="${esc(gmailSearch(e.t))}" target="_blank" rel="noopener noreferrer">Find in Gmail</a>
+        <button class="linkish" data-copy-subject="${i}">Copy subject</button></div>` : ""}</li>`).join("")}</ul>`;
   $("sheet").classList.remove("hidden");
   $("save").onclick = () => {
     const v = f => $(f).value;
@@ -208,6 +210,22 @@ function openSheet(id) {
   $("received").onclick = () => edit(p, { received: !p.received });
   const copy = $("copy");
   if (copy) copy.onclick = () => navigator.clipboard && navigator.clipboard.writeText(p.tracking);
+  document.querySelectorAll("[data-copy-subject]").forEach(b => {
+    b.onclick = () => {
+      const s = cleanSubject((p.events[Number(b.dataset.copySubject)] || {}).t);
+      if (navigator.clipboard) navigator.clipboard.writeText(s).then(() => { b.textContent = "Copied"; }, () => {});
+    };
+  });
+}
+
+/** The email's own subject, without any "Fwd:" / "FW:" / "Re:" prefixes. */
+function cleanSubject(s) {
+  return String(s || "").replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, "").trim();
+}
+
+/** A Gmail search for that subject, in whichever account the phone is signed into. */
+function gmailSearch(s) {
+  return "https://mail.google.com/mail/u/0/#search/" + encodeURIComponent('subject:"' + cleanSubject(s).replace(/"/g, "") + '"');
 }
 
 async function edit(p, fields) {

@@ -12,7 +12,8 @@ var CARRIER_DOMAINS = {
 var TRACKING_PATTERNS = [
   ['UPS', /\b(1Z[0-9A-Z]{16})\b/],
   ['Amazon', /\b(TBA\d{12,15})\b/],
-  ['USPS', /\b(9[2345]\d{20}|9\d{21}|[A-Z]{2}\d{9}US)\b/],
+  // USPS IMpb numbers are 20, 22, 26, 30 or 34 digits; UPS Ground Saver / Mail Innovations hand off on them too.
+  ['USPS', /\b(9[1-5]\d{32}|9[1-5]\d{28}|9[1-5]\d{24}|9[2345]\d{20}|9\d{21}|9[1-5]\d{18}|[A-Z]{2}\d{9}US)\b/],
   ['FedEx', /\b(\d{12}|\d{15}|\d{20})\b/],
   ['DHL', /\b(\d{10})\b/]
 ];
@@ -100,7 +101,7 @@ function findTracking(text) {
     var m = TRACKING_PATTERNS[i][1].exec(text);
     if (m) return { tracking: m[1], carrier: carrier };
   }
-  var g = /tracking\s*(?:number|no\.?|#|id)?\s*[:#]?\s*([A-Z0-9]{8,34})\b/i.exec(text);
+  var g = /(?:tracking\s*(?:number|no\.?|#|id)?|track your (?:shipment|package|order))\s*[:#]?\s*([A-Z0-9]{8,34})\b/i.exec(text);
   if (g && /\d/.test(g[1])) return { tracking: g[1], carrier: null };
   return { tracking: null, carrier: null };
 }
@@ -180,6 +181,9 @@ function findItems(subject, body, kind, htmlBody) {
   if (m && !/\border\b.*#/i.test(m[1]) && !/^(your|the|a|an|\d+ items?)\b/i.test(m[1])) return m[1].replace(/[\s.!]+$/, '');
   m = /["“]([^"”]{6,120})["”]/.exec(subject);
   if (m) return m[1];
+  // ShipStation-style shipment table: "Item # Description Qty" then "SKU-123 Product name 2".
+  var st = shipmentTable_(body + '\n' + String(htmlBody || ''));
+  if (st) return st;
   // Shipping notices rarely list items cleanly; the order confirmation does.
   if (kind !== 'order') return null;
   var out = [], seen = {};
@@ -214,6 +218,7 @@ function findItems(subject, body, kind, htmlBody) {
     if (q && Number(q[1]) > 1) name += ' ×' + q[1];
     if (!seen[name.toLowerCase()]) { seen[name.toLowerCase()] = true; out.push(name); }
   }
+  out = out.filter(function (x) { return !junkItem_(x); });
   if (out.length) return out.join('; ');
   var skipUntil = -1, lastAdded = -1;
   for (var i = 0; i < lines.length && out.length < 3; i++) {
@@ -233,8 +238,30 @@ function findItems(subject, body, kind, htmlBody) {
     if (/\b(arriv|carrier|estimated|delivery|shipped|tracking|on its way|good news)/i.test(line)) continue;
     if (/\$|\d{5,}|@|\bhttp/.test(line)) continue;
     if (/\b(qty|quantity)\b/i.test(line)) continue;
+    if (junkItem_(line)) continue;
     var k = line.toLowerCase();
     if (!seen[k]) { seen[k] = true; out.push(line); lastAdded = i; }
+  }
+  return out.length ? out.join('; ') : null;
+}
+
+/** Order-summary lines that aren't products: totals, taxes, fees. */
+function junkItem_(s) {
+  var t = String(s || '').replace(/[:*]/g, ' ').trim();
+  return /^(grand total|total|sub ?total|sales tax|tax|amount paid|amount due|additional fees?( ?\(s\))?|delivery fee|service fee|fees?|shipping( & handling)?|discount|tip)\b[^a-z]*$/i.test(t) ||
+    /^(grand total|amount paid|sales tax|additional fee|delivery fee)\b/i.test(t);
+}
+
+/** "Item # Description Qty" tables (ShipStation shipment emails). Returns "Name ×2; Other" or null. */
+function shipmentTable_(text) {
+  var lines = String(text || '').split(/\r?\n/), out = [], on = false;
+  for (var i = 0; i < lines.length && out.length < 3; i++) {
+    var l = lines[i].replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+    if (/^item ?#? description qty$/i.test(l)) { on = true; continue; }
+    if (!on) continue;
+    var m = /^([A-Z0-9][A-Z0-9\-_.]{3,})\s+(.+?)\s+(\d{1,3})$/.exec(l);
+    if (!m) { if (out.length || l) break; continue; }
+    out.push(m[2] + (Number(m[3]) > 1 ? ' ×' + m[3] : ''));
   }
   return out.length ? out.join('; ') : null;
 }
@@ -285,6 +312,9 @@ function parseEmail(msg) {
   var kind = classify(subject, body);
   // Event tickets are "orders" that never ship.
   if (/ticketmaster|livenation|axs\.com|stubhub|seatgeek|eventbrite|vividseats|dice\.fm|cashortrade|tock|opentable|resy/i.test(from.addr)) kind = 'ignored';
+  // Payment notices ("Payment on the way", Bill Pay, PayPal) aren't packages.
+  if (/intuit\.com|quickbooks|paypal|venmo|zelle|bill\.com|melio/i.test(from.addr + ' ' + from.name) ||
+      /\bpayment (on the way|sent|received|scheduled|is on its way)\b/i.test(subject)) kind = 'ignored';
   var t = findTracking(text);
   var carrier = t.carrier || findCarrier(text, from.addr);
   // A carrier email we didn't recognise by subject, but it carries a real tracking number.
@@ -354,13 +384,16 @@ function applyEmail(pkgs, p) {
     // Only move status forward, never back from delivered.
     if (STATUS_RANK[status] >= (STATUS_RANK[pkg.status] || 0)) pkg.status = status;
     var fill = ['tracking', 'carrier', 'order_number', 'items', 'eta', 'tracking_url', 'image', 'merchant', 'merchant_domain'];
+    if (p.items && junkItem_(String(pkg.items || '').split('; ')[0])) pkg.items = '';
     for (var j = 0; j < fill.length; j++) if (p[fill[j]] && !pkg[fill[j]]) pkg[fill[j]] = p[fill[j]];
     if (p.eta && (p.kind === 'update' || p.kind === 'shipped' || p.kind === 'out_for_delivery')) pkg.eta = p.eta;
     if (p.kind === 'delivered' && !pkg.delivered_at) pkg.delivered_at = p.received;
     if (p.kind === 'order' && !pkg.ordered_at) pkg.ordered_at = p.received;
     if (p.received > pkg.last_update) pkg.last_update = p.received;
   }
-  pkg.events.unshift({ s: status, at: p.received, t: p.subject, f: p.from_name });
+  // A forwarded copy of an email we already filed: don't log it twice.
+  var dup = pkg.events.some(function (e) { return e.s === status && e.t === p.subject; });
+  if (!dup) pkg.events.unshift({ s: status, at: p.received, t: p.subject, f: p.from_name });
   if (pkg.events.length > 20) pkg.events.length = 20;
   return pkg;
 }

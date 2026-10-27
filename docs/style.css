@@ -76,5 +76,7 @@ button.primary, .row .primary { background: var(--accent); border: 1px solid var
 .timeline { list-style: none; padding: 0; margin: 14px 0 0; border-top: 1px solid var(--line); }
 .timeline li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .timeline .when { color: var(--muted); font-size: 12px; }
+.timeline .ev-actions { display: flex; gap: 14px; margin-top: 4px; font-size: 13px; }
+.timeline .linkish { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
 article { padding: 8px 16px 32px; }
 article h2 { font-size: 17px; margin-top: 22px; }
