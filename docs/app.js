@@ -121,10 +121,12 @@ function render() {
       <div class="body">
         <div class="items">${esc(title(p))}</div>
         <div class="${etaClass(p)}">${esc(etaLabel(p))}</div>
-        <div class="meta">${p.merchant ? `<span class="chip">${esc(p.merchant)}</span>` : ""}${p.carrier ? `<span class="chip">${esc(p.carrier)}</span>` : ""}${esc(STATUS_LABEL[p.status] || "")}</div>
+        <div class="meta">${p.merchant ? `<span class="chip">${esc(p.merchant)}</span>` : ""}${p.carrier ? `<span class="chip">${esc(p.carrier)}</span>` : ""}${esc(STATUS_LABEL[p.status] || "")}${trackLink(p) && p.status !== "delivered" ? ` · <a class="track" href="${esc(trackLink(p))}" target="_blank" rel="noopener noreferrer">Track</a>` : ""}</div>
       </div>
       ${view === "delivered" ? `<button class="gotit" aria-label="Mark as received">Got it</button>` : ""}`;
     el.onclick = () => openSheet(p.id);
+    const tr = el.querySelector("a.track");
+    if (tr) tr.onclick = e => e.stopPropagation();
     const got = el.querySelector(".gotit");
     if (got) got.onclick = e => { e.stopPropagation(); edit(p, { received: true }); };
     list.appendChild(el);
@@ -175,7 +177,7 @@ function openSheet(id) {
   if (!p) return;
   current = p;
   const opts = Object.entries(STATUS_LABEL).map(([k, v]) => `<option value="${k}" ${p.status === k ? "selected" : ""}>${v}</option>`).join("");
-  const track = safeUrl(p.tracking_url);
+  const track = trackLink(p);
   $("detail").innerHTML = `
     <div class="hero">${thumb(p)}<div><h2>${esc(title(p))}</h2><div class="${etaClass(p)}">${esc(etaLabel(p))}</div></div></div>
     <div class="row">
@@ -216,6 +218,31 @@ function openSheet(id) {
       if (navigator.clipboard) navigator.clipboard.writeText(s).then(() => { b.textContent = "Copied"; }, () => {});
     };
   });
+}
+
+/**
+ * Where to track a package: the carrier's page for its number (built fresh, so a number fixed
+ * by hand still links), else the link from the email, else a web search for the number.
+ */
+const CARRIER_TRACK = {
+  usps: "https://tools.usps.com/go/TrackConfirmAction?tLabels=",
+  ups: "https://www.ups.com/track?tracknum=",
+  fedex: "https://www.fedex.com/fedextrack/?trknbr=",
+  dhl: "https://www.dhl.com/us-en/home/tracking.html?tracking-id=",
+  ontrac: "https://www.ontrac.com/tracking/?number=",
+  lasership: "https://www.lasership.com/track/",
+};
+function trackLink(p) {
+  const num = String(p.tracking || "").replace(/\s+/g, "");
+  let c = String(p.carrier || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (num && !CARRIER_TRACK[c]) {
+    if (/^1Z[0-9A-Z]{16}$/i.test(num)) c = "ups";
+    else if (/^(9[1-5]\d{18,32}|[A-Z]{2}\d{9}US)$/i.test(num)) c = "usps";
+  }
+  if (num && CARRIER_TRACK[c]) return CARRIER_TRACK[c] + encodeURIComponent(num);
+  const fromEmail = safeUrl(p.tracking_url);
+  if (fromEmail) return fromEmail;
+  return num ? "https://www.google.com/search?q=" + encodeURIComponent("track package " + num) : "";
 }
 
 /** The email's own subject, without any "Fwd:" / "FW:" / "Re:" prefixes. */
