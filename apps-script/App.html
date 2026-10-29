@@ -333,7 +333,7 @@ function openSheet(id) {
     </div>
     <ul class="timeline">${(p.events || []).map((e, i) => `<li><div>${esc(STATUS_LABEL[e.s] || e.s)} — ${esc(cleanSubject(e.t))}</div>
       <div class="when">${esc(fmtDate(e.at, true))}${e.f ? " · " + esc(e.f) : ""}</div>
-      ${cleanSubject(e.t) ? `<div class="ev-actions"><a href="${esc(gmailSearch(e.t))}" target="_blank" rel="noopener noreferrer">Find in Gmail</a>
+      ${cleanSubject(e.t) ? `<div class="ev-actions"><a href="${esc(gmailSearch(e.t))}" data-gmail="${i}" target="_blank" rel="noopener noreferrer">Find in Gmail</a>
         <button class="linkish" data-copy-subject="${i}">Copy subject</button></div>` : ""}</li>`).join("")}</ul>`;
   $("sheet").classList.remove("hidden");
   $("save").onclick = () => {
@@ -345,6 +345,19 @@ function openSheet(id) {
   $("received").onclick = () => edit(p, { received: !p.received });
   const copy = $("copy");
   if (copy) copy.onclick = () => navigator.clipboard && navigator.clipboard.writeText(p.tracking);
+  // On a phone, open the Gmail app instead of the website. The app can't be handed a search,
+  // so the subject is copied first: tap the search bar in Gmail and paste.
+  document.querySelectorAll("[data-gmail]").forEach(a => {
+    const app = gmailAppUrl(a.href);
+    if (!app) return;
+    a.onclick = ev => {
+      ev.preventDefault();
+      const s = cleanSubject((p.events[Number(a.dataset.gmail)] || {}).t);
+      const go = () => { location.href = app; };
+      if (navigator.clipboard) navigator.clipboard.writeText(s).then(() => { a.textContent = "Copied, paste in Gmail"; go(); }, go);
+      else go();
+    };
+  });
   document.querySelectorAll("[data-copy-subject]").forEach(b => {
     b.onclick = () => {
       const s = cleanSubject((p.events[Number(b.dataset.copySubject)] || {}).t);
@@ -381,6 +394,20 @@ function trackLink(p) {
 /** The email's own subject, without any "Fwd:" / "FW:" / "Re:" prefixes. */
 function cleanSubject(s) {
   return String(s || "").replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, "").trim();
+}
+
+/**
+ * A link that opens the Gmail app, or "" on a computer. Android uses an intent with the web
+ * search as the fallback if Gmail isn't installed; iPhone uses the Gmail app's own scheme.
+ */
+function gmailAppUrl(webUrl) {
+  const ua = navigator.userAgent || "";
+  if (/Android/i.test(ua)) {
+    return "intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;" +
+      "package=com.google.android.gm;S.browser_fallback_url=" + encodeURIComponent(webUrl) + ";end";
+  }
+  if (/iPhone|iPad|iPod/i.test(ua)) return "googlegmail://";
+  return "";
 }
 
 /** A Gmail search for that subject, in whichever account the phone is signed into. */
